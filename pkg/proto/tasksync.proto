@@ -1,0 +1,34 @@
+// Use the proto3 syntax.
+syntax = "proto3";
+
+// Define the package to prevent name collisions and specify the Go package path.
+package proto;
+option go_package = "github.com/ojash123/tasksync/pkg/proto";
+
+import "google/protobuf/timestamp.proto";
+
+// The service definition for syncing tasks.
+service TaskSyncService {
+  // SyncTask is a remote procedure call (RPC) to send a task update.
+  rpc SyncTask(SyncRequest) returns (SyncResponse) {}
+}
+
+// The request message containing the task to be synced.
+message SyncRequest {
+  TaskMessage task = 1;
+}
+
+// The response message, which is empty for a simple acknowledgment.
+message SyncResponse {}
+
+// TaskMessage mirrors our Go Task struct, but uses Protobuf data types.
+message TaskMessage {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string status = 4;
+  string priority = 5;
+  string assigned_user_id = 6;
+  google.protobuf.Timestamp due_date = 7;
+  google.protobuf.Timestamp last_updated = 8;
+}
