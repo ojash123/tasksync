@@ -6,16 +6,23 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	//"github.com/ojash123/tasksync/internal/sync"
 )
 
 // TaskHandler holds the dependencies for task-related HTTP handlers.
 type TaskHandler struct {
 	Store *TaskStore
+	// Add a field to hold the peer addresses
+	TaskBroadcastChan chan Task
 }
 
 // NewTaskHandler creates a new TaskHandler with a given TaskStore.
-func NewTaskHandler(store *TaskStore) *TaskHandler {
-	return &TaskHandler{Store: store}
+// Update the function to accept the peer list.
+func NewTaskHandler(store *TaskStore, broadcastChan chan Task) *TaskHandler {
+	return &TaskHandler{
+		Store:             store,
+		TaskBroadcastChan: broadcastChan,
+	}
 }
 
 // RegisterRoutes sets up the routing for the task endpoints.
@@ -71,7 +78,8 @@ func (h *TaskHandler) createTask(w http.ResponseWriter, r *http.Request) {
 	newTask.LastUpdated = time.Now().UTC()
 
 	h.Store.CreateTask(newTask)
-
+	// Broadcast the new task to peers in a goroutine so it doesn't block the API response.
+	h.TaskBroadcastChan <- newTask
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newTask)
@@ -108,7 +116,7 @@ func (h *TaskHandler) updateTask(w http.ResponseWriter, r *http.Request, id stri
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-
+	h.TaskBroadcastChan <- updatedTask
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(updatedTask)
 }

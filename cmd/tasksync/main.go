@@ -14,19 +14,25 @@ import (
 )
 
 func main() {
-	// --- Define our peer list ---
-	// For this test, we are the only peer. It will try to sync with itself.
-	peerAddresses := []string{"localhost:9090"}
-
-	// --- Common setup: Create the shared task store ---
+	peerAddresses := []string{"localhost:9090", "localhost:9999"}
 	taskStore := task.NewTaskStore()
 
-	// --- Start gRPC Server (in a goroutine) ---
+	// 1. Create the channel for broadcasting tasks.
+	// A buffered channel is used so that sending doesn't block if the listener is busy.
+	taskBroadcastChan := make(chan task.Task, 10)
+
+	// Start gRPC Server (in a goroutine)
 	go startGRPCServer(taskStore)
 
-	// --- Start REST API Server (this will block) ---
-	// Pass the peer list to the task handler.
-	taskHandler := task.NewTaskHandler(taskStore, peerAddresses)
+	// 2. Start a new goroutine to listen on the channel and broadcast tasks.
+	go func() {
+		for t := range taskBroadcastChan {
+			sync.BroadcastTask(peerAddresses, t)
+		}
+	}()
+
+	// 3. Update the NewTaskHandler call to pass the channel.
+	taskHandler := task.NewTaskHandler(taskStore, taskBroadcastChan)
 	router := http.NewServeMux()
 	taskHandler.RegisterRoutes(router)
 
